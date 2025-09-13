@@ -5,7 +5,7 @@ import AddNameButton from "./AddNameButton";
 
 export default function App() {
     const [records, setRecords] = useState([]);
-    const [showTable, setShowTable] = useState(true);
+    const [showTable, setShowTable] = useState(false);
     const [currentMonth, setCurrentMonth] = useState(new Date()); // current month
 
     useEffect(() => {

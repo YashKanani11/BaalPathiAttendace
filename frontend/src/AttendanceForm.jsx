@@ -1,12 +1,16 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 
 export default function AttendanceForm({ names, setNames, onAdd }) {
   const [name, setName] = useState("");
   const [time, setTime] = useState("");
+  const [search, setSearch] = useState("");
 
   // Get local Kolkata date
   const today = new Date();
-  const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(
+    2,
+    "0"
+  )}-${String(today.getDate()).padStart(2, "0")}`;
   const [date, setDate] = useState(localDate);
 
   // State for Sunday times: { id: "HH:MM" }
@@ -59,36 +63,48 @@ export default function AttendanceForm({ names, setNames, onAdd }) {
 
       {isSunday ? (
         <div className="flex flex-col gap-2">
-          {names.sort((a, b) => a.name.localeCompare(b.name)).map(n => (
-            <div key={n.id} className="flex items-center gap-2">
-              <span className="flex-1">{n.name}</span>
-              <input
-                type="time"
-                value={sundayTimes[n.id] || ""}
-                onChange={(e) =>
-                  setSundayTimes(prev => ({ ...prev, [n.id]: e.target.value }))
-                }
-                className="p-1 border rounded w-24"
-              />
-              <button
-                className="bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700"
-                onClick={() => {
-                  const timeValue = sundayTimes[n.id];
-                  if (!timeValue) return;
-                  const record = { ...n, time: timeValue, date };
-                  fetch("https://baalpathiattendace.onrender.com/attendance", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(record)
-                  });
-                  onAdd(record);
-                  setSundayTimes(prev => ({ ...prev, [n.id]: "" }));
-                }}
-              >
-                Add
-              </button>
-            </div>
-          ))}
+          {/* Search bar */}
+          <input
+            type="text"
+            placeholder="Search Name..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="p-2 border rounded-lg mb-2"
+          />
+
+          {names
+            .filter(n => n.name.toLowerCase().includes(search.toLowerCase()))
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map(n => (
+              <div key={n.id} className="flex items-center gap-2">
+                <span className="flex-1">{n.name}</span>
+                <input
+                  type="time"
+                  value={sundayTimes[n.id] || ""}
+                  onChange={(e) =>
+                    setSundayTimes(prev => ({ ...prev, [n.id]: e.target.value }))
+                  }
+                  className="p-1 border rounded w-24"
+                />
+                <button
+                  className="bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700"
+                  onClick={() => {
+                    const timeValue = sundayTimes[n.id];
+                    if (!timeValue) return;
+                    const record = { ...n, time: timeValue, date };
+                    fetch("https://baalpathiattendace.onrender.com/attendance", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(record)
+                    });
+                    onAdd(record);
+                    setSundayTimes(prev => ({ ...prev, [n.id]: "" }));
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+            ))}
         </div>
       ) : (
         <div className="flex flex-col gap-4">
