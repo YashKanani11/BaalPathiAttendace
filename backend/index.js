@@ -16,10 +16,25 @@ app.get("/names", (req, res) => {
 });
 
 app.post("/names", (req, res) => {
+  const nameStr = req.body.name?.trim();
+  if (!nameStr) return res.status(400).json({ error: "Name is required" });
+
+  // Read existing names
   const data = JSON.parse(fs.readFileSync(NAMES_FILE));
-  const newName = { id: "u" + Date.now(), name: req.body.name };
+
+  // Check for duplicates (case-insensitive)
+  const exists = data.some(
+    (n) => n.name.toLowerCase() === nameStr.toLowerCase()
+  );
+  if (exists) return res.status(400).json({ error: "Name already exists" });
+
+  // Create new entry
+  const newName = { id: "u" + Date.now(), name: nameStr };
   data.push(newName);
+
+  // Save back to file
   fs.writeFileSync(NAMES_FILE, JSON.stringify(data, null, 2));
+
   res.json(newName);
 });
 
