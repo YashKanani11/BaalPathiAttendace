@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import AttendanceForm from "./AttendanceForm";
 import ReportButton from "./ReportButton";
+import AddNameButton from "./AddNameButton";
 
 export default function App() {
     const [records, setRecords] = useState([]);
@@ -12,7 +13,13 @@ export default function App() {
             .then(res => res.json())
             .then(setRecords);
     }, []);
+    const [names, setNames] = useState([]);
 
+    useEffect(() => {
+        fetch("https://baalpathiattendace.onrender.com/names")
+            .then(res => res.json())
+            .then(setNames);
+    }, []);
     // Filter records by current month
     const monthRecords = records.filter(r => {
         const rDate = new Date(r.date);
@@ -26,7 +33,7 @@ export default function App() {
     const monthDates = [...new Set(monthRecords.map(r => r.date))].sort();
 
     // Unique names in month
-    const names = [...new Set(monthRecords.map(r => r.name))].sort();
+    // const names = [...new Set(monthRecords.map(r => r.name))].sort();
 
     const prevMonth = () => {
         const d = new Date(currentMonth);
@@ -43,8 +50,12 @@ export default function App() {
     return (
         <div className="min-h-screen bg-gray-100 flex flex-col items-center p-6">
             <h1 className="text-2xl font-bold mb-6">Attendance Tracker</h1>
-
-            <AttendanceForm onAdd={record => setRecords([...records, record])} />
+            <AddNameButton onAddName={(newName) => setNames([...names, newName])} />
+            <AttendanceForm
+                names={names}
+                setNames={setNames}
+                onAdd={record => setRecords([...records, record])}
+            />
 
             {records.length > 0 && (
                 <div className="mt-6 flex gap-4">
@@ -80,14 +91,16 @@ export default function App() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {names.map(name => (
-                                    <tr key={name}>
-                                        <td className="border px-4 py-2 font-medium">{name}</td>
+                                {names.map(nameObj => (
+                                    <tr key={nameObj.id}>
+                                        <td className="border px-4 py-2 font-medium">{nameObj.name}</td>
                                         {monthDates.map(date => {
-                                            const rec = monthRecords.find(r => r.name === name && r.date === date);
+                                            const rec = monthRecords.find(
+                                                r => r.name === nameObj.name && r.date === date
+                                            );
                                             return (
                                                 <td key={date} className="border px-4 py-2 text-center">
-                                                    {rec ? rec.time : "-"}
+                                                    {rec?.time || "-"}
                                                 </td>
                                             );
                                         })}
