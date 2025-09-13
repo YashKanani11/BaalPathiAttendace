@@ -86,18 +86,19 @@ export default function AttendanceForm({ names, setNames, onAdd }) {
                   }
                   className="p-1 border rounded w-24"
                 />
+                {/* Individual Add button */}
                 <button
                   className="bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700"
-                  onClick={() => {
+                  onClick={async () => {
                     const timeValue = sundayTimes[n.id];
                     if (!timeValue) return;
                     const record = { ...n, time: timeValue, date };
-                    fetch("https://baalpathiattendace.onrender.com/attendance", {
+                    await fetch("https://baalpathiattendace.onrender.com/attendance", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify(record)
                     });
-                    onAdd(record);
+                    onAdd([record]); // update parent
                     setSundayTimes(prev => ({ ...prev, [n.id]: "" }));
                   }}
                 >
@@ -105,6 +106,29 @@ export default function AttendanceForm({ names, setNames, onAdd }) {
                 </button>
               </div>
             ))}
+
+          {/* Add All button */}
+          <button
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mt-2"
+            onClick={async () => {
+              const toSave = names
+                .filter(n => sundayTimes[n.id]) // only entries with time
+                .map(n => ({ ...n, time: sundayTimes[n.id], date }));
+
+              for (const record of toSave) {
+                await fetch("https://baalpathiattendace.onrender.com/attendance", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(record)
+                });
+              }
+
+              onAdd(toSave); // update parent
+              setSundayTimes({}); // clear all inputs
+            }}
+          >
+            Add All
+          </button>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
