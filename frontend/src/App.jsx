@@ -16,7 +16,7 @@ export default function App() {
         ? records.filter(r => r.date === today)
         : records;
     useEffect(() => {
-        fetch("http://localhost:4000/attendance")
+        fetch("https://baalpathiattendace.onrender.com/attendance")
             .then(res => res.json())
             .then(setRecords);
     }, []);

@@ -10,7 +10,7 @@ export default function AttendanceForm({ onAdd }) {
   );
 
   useEffect(() => {
-    fetch("http://localhost:4000/names")
+    fetch("https://baalpathiattendace.onrender.com/names")
       .then(res => res.json())
       .then(setNames);
   }, []);
@@ -22,7 +22,7 @@ export default function AttendanceForm({ onAdd }) {
     let newEntry = existing;
 
     if (!existing) {
-      const res = await fetch("http://localhost:4000/names", {
+      const res = await fetch("https://baalpathiattendace.onrender.com/names", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name })
@@ -33,7 +33,7 @@ export default function AttendanceForm({ onAdd }) {
 
     const record = { ...newEntry, time, date };
     // Save to backend
-    await fetch("http://localhost:4000/attendance", {
+    await fetch("https://baalpathiattendace.onrender.com/attendance", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(record)
