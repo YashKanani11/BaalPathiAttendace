@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-export default function AttendanceForm({ names, setNames, onAdd }) {
+export default function AttendanceForm({ names, setNames, onAdd, token, apiBase }) {
   const [name, setName] = useState("");
   const [time, setTime] = useState("");
   const [search, setSearch] = useState("");
@@ -29,26 +29,45 @@ export default function AttendanceForm({ names, setNames, onAdd }) {
     if (!name || !time) return;
 
     // Check if name exists
-    let existing = names.find(n => n.name.toLowerCase() === name.toLowerCase());
+    let existing = names.find((n) => n.name.toLowerCase() === name.toLowerCase());
     let newEntry = existing;
 
     // Add new name if not exists
     if (!existing) {
-      const res = await fetch("https://baalpathiattendace.onrender.com/names", {
+      const res = await fetch(`${apiBase}/names`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name })
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name }),
       });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || "Failed to add name");
+        return;
+      }
+
       newEntry = await res.json();
-      setNames([...names, newEntry]);
+      setNames((prev) => [...prev, newEntry]);
     }
 
-    const record = { ...newEntry, time, date };
-    await fetch("https://baalpathiattendace.onrender.com/attendance", {
+    const record = { nameId: newEntry.id || newEntry._id, name: newEntry.name, time, date };
+    const rres = await fetch(`${apiBase}/attendance`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(record)
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(record),
     });
+
+    if (!rres.ok) {
+      const err = await rres.json().catch(() => ({}));
+      alert(err.error || "Failed to save attendance");
+      return;
+    }
 
     onAdd(record);
     setName("");
@@ -73,16 +92,16 @@ export default function AttendanceForm({ names, setNames, onAdd }) {
           />
 
           {names
-            .filter(n => n.name.toLowerCase().includes(search.toLowerCase()))
+            .filter((n) => n.name.toLowerCase().includes(search.toLowerCase()))
             .sort((a, b) => a.name.localeCompare(b.name))
-            .map(n => (
-              <div key={n.id} className="flex items-center gap-2">
+            .map((n) => (
+              <div key={n.id || n._id} className="flex items-center gap-2">
                 <span className="flex-1">{n.name}</span>
                 <input
                   type="time"
-                  value={sundayTimes[n.id] || ""}
+                  value={sundayTimes[n.id] || sundayTimes[n._id] || ""}
                   onChange={(e) =>
-                    setSundayTimes(prev => ({ ...prev, [n.id]: e.target.value }))
+                    setSundayTimes((prev) => ({ ...prev, [n.id || n._id]: e.target.value }))
                   }
                   className="p-1 border rounded w-24"
                 />
@@ -90,16 +109,29 @@ export default function AttendanceForm({ names, setNames, onAdd }) {
                 <button
                   className="bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700"
                   onClick={async () => {
-                    const timeValue = sundayTimes[n.id];
+                    const timeValue = sundayTimes[n.id] || sundayTimes[n._id];
                     if (!timeValue) return;
-                    const record = { ...n, time: timeValue, date };
-                    await fetch("https://baalpathiattendace.onrender.com/attendance", {
+                    const record = {
+                      nameId: n.id || n._id,
+                      name: n.name,
+                      time: timeValue,
+                      date,
+                    };
+                    const res = await fetch(`${apiBase}/attendance`, {
                       method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify(record)
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                      },
+                      body: JSON.stringify(record),
                     });
-                    onAdd([record]); // update parent
-                    setSundayTimes(prev => ({ ...prev, [n.id]: "" }));
+                    if (!res.ok) {
+                      const err = await res.json().catch(() => ({}));
+                      alert(err.error || "Failed to save attendance");
+                      return;
+                    }
+                    onAdd(record); // push single record
+                    setSundayTimes((prev) => ({ ...prev, [n.id || n._id]: "" }));
                   }}
                 >
                   Add
@@ -112,18 +144,31 @@ export default function AttendanceForm({ names, setNames, onAdd }) {
             className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mt-2"
             onClick={async () => {
               const toSave = names
-                .filter(n => sundayTimes[n.id]) // only entries with time
-                .map(n => ({ ...n, time: sundayTimes[n.id], date }));
+                .filter((n) => (sundayTimes[n.id] || sundayTimes[n._id]))
+                .map((n) => ({
+                  nameId: n.id || n._id,
+                  name: n.name,
+                  time: sundayTimes[n.id] || sundayTimes[n._id],
+                  date,
+                }));
 
               for (const record of toSave) {
-                await fetch("https://baalpathiattendace.onrender.com/attendance", {
+                const res = await fetch(`${apiBase}/attendance`, {
                   method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(record)
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: JSON.stringify(record),
                 });
+                if (!res.ok) {
+                  const err = await res.json().catch(() => ({}));
+                  alert(err.error || "Failed to save one of the records");
+                } else {
+                  onAdd(record); // push each saved record
+                }
               }
 
-              onAdd(toSave); // update parent
               setSundayTimes({}); // clear all inputs
             }}
           >
@@ -141,8 +186,8 @@ export default function AttendanceForm({ names, setNames, onAdd }) {
             className="p-2 border rounded-lg"
           />
           <datalist id="name-options">
-            {names.map(n => (
-              <option key={n.id} value={n.name} />
+            {names.map((n) => (
+              <option key={n.id || n._id} value={n.name} />
             ))}
           </datalist>
 

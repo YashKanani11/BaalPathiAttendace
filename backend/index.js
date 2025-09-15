@@ -1,54 +1,119 @@
 import express from "express";
-import fs from "fs";
+import mongoose from "mongoose";
 import cors from "cors";
+import dotenv from "dotenv";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+
+dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const NAMES_FILE = "./names.json";
-const ATTENDANCE_FILE = "./attendance.json";
+mongoose
+  .connect(process.env.MONGO_URI, { dbName: "Baal_Pathi_Attendance" })
+  .then(() => console.log("Mongo DB Conencted"))
+  .catch((err) => console.error(err));
 
-// ----- Names -----
-app.get("/names", (req, res) => {
-  const data = JSON.parse(fs.readFileSync(NAMES_FILE));
-  res.json(data);
+// ----- Schemas & Models -----
+const userSchema = new mongoose.Schema({
+  username: { type: String, unique: true },
+  password: String,
 });
 
-app.post("/names", (req, res) => {
+const nameSchema = new mongoose.Schema({
+  name: { type: String, unique: true },
+});
+const attendanceSchema = new mongoose.Schema({
+  nameId: String,
+  name: String,
+  time: String,
+  date: String,
+});
+const User = mongoose.model("User", userSchema);
+const Name = mongoose.model("Name", nameSchema);
+const Attendance = mongoose.model("Attendance", attendanceSchema);
+
+// ----- Auth Middleware -----
+const authMiddleware = (req, res, next) => {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) return res.status(401).json({ error: "No token" });
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded; // { id, username }
+    next();
+  } catch {
+    res.status(403).json({ error: "Invalid token" });
+  }
+};
+// ----- Auth Routes -----
+app.post("/signup", async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password)
+    return res.status(400).json({ error: "Username and password required" });
+
+  const exists = await User.findOne({ username });
+  if (exists) return res.status(400).json({ error: "User already exists" });
+
+  const hashed = await bcrypt.hash(password, 10);
+  const newUser = new User({ username, password: hashed });
+  await newUser.save();
+
+  res.json({ success: true });
+});
+app.post("/login", async (req, res) => {
+  const { username, password } = req.body;
+  const user = await User.findOne({ username });
+  if (!user) return res.status(400).json({ error: "Invalid credentials" });
+
+  const valid = await bcrypt.compare(password, user.password);
+  if (!valid) return res.status(400).json({ error: "Invalid credentials" });
+
+  const token = jwt.sign(
+    { id: user._id, username: user.username },
+    process.env.JWT_SECRET,
+    { expiresIn: "1d" }
+  );
+
+  res.json({ token });
+});
+
+// ----- Names -----
+app.get("/names", authMiddleware, async (req, res) => {
+  const names = await Name.find();
+  res.json(names);
+});
+
+app.post("/names", authMiddleware, async (req, res) => {
   const nameStr = req.body.name?.trim();
   if (!nameStr) return res.status(400).json({ error: "Name is required" });
 
-  // Read existing names
-  const data = JSON.parse(fs.readFileSync(NAMES_FILE));
-
-  // Check for duplicates (case-insensitive)
-  const exists = data.some(
-    (n) => n.name.toLowerCase() === nameStr.toLowerCase()
-  );
-  if (exists) return res.status(400).json({ error: "Name already exists" });
-
-  // Create new entry
-  const newName = { id: "u" + Date.now(), name: nameStr };
-  data.push(newName);
-
-  // Save back to file
-  fs.writeFileSync(NAMES_FILE, JSON.stringify(data, null, 2));
-
-  res.json(newName);
+  try {
+    const newName = new Name({ name: nameStr });
+    await newName.save();
+    res.json(newName);
+  } catch {
+    res.status(400).json({ error: "Name already exists" });
+  }
 });
 
 // ----- Attendance -----
-app.get("/attendance", (req, res) => {
-  const data = JSON.parse(fs.readFileSync(ATTENDANCE_FILE));
-  res.json(data);
+app.get("/attendance", authMiddleware, async (req, res) => {
+  const records = await Attendance.find();
+  res.json(records);
 });
 
-app.post("/attendance", (req, res) => {
-  const data = JSON.parse(fs.readFileSync(ATTENDANCE_FILE));
-  data.push(req.body); // { id, name, time, date }
-  fs.writeFileSync(ATTENDANCE_FILE, JSON.stringify(data, null, 2));
+app.post("/attendance", authMiddleware, async (req, res) => {
+  const { nameId, name, time, date } = req.body;
+  const record = new Attendance({ nameId, name, time, date });
+  await record.save();
   res.json({ success: true });
 });
 
-app.listen(4000, () => console.log("Server running on http://localhost:4000"));
+// ----- Start Server -----
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () =>
+  console.log(`🚀 Server running on http://localhost:${PORT}`)
+);

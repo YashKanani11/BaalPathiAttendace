@@ -1,21 +1,26 @@
 import React, { useState } from "react";
 
-export default function AddNameButton({ onAddName }) {
+export default function AddNameButton({ onAddName, token }) {
     const [showInput, setShowInput] = useState(false);
     const [newName, setNewName] = useState("");
+
+    const API_BASE = import.meta.env.VITE_API_BASE;
 
     const handleSave = async () => {
         if (!newName.trim()) return;
 
-        const res = await fetch("https://baalpathiattendace.onrender.com/names", {
+        const res = await fetch(`${API_BASE}/names`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: newName })
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ name: newName }),
         });
 
         if (!res.ok) {
-            const err = await res.json();
-            alert(err.error);
+            const err = await res.json().catch(() => ({}));
+            alert(err.error || "Failed to add name");
             return;
         }
 
@@ -51,7 +56,10 @@ export default function AddNameButton({ onAddName }) {
                     </button>
                     <button
                         className="bg-gray-300 px-3 py-1 rounded hover:bg-gray-400"
-                        onClick={() => { setShowInput(false); setNewName(""); }}
+                        onClick={() => {
+                            setShowInput(false);
+                            setNewName("");
+                        }}
                     >
                         Cancel
                     </button>

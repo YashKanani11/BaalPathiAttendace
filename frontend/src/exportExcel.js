@@ -1,3 +1,5 @@
+//src/exportExcel.js
+
 import * as XLSX from "xlsx";
 
 export function exportToExcel(records, filename = "attendance.xlsx") {
